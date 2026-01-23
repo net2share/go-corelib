@@ -75,13 +75,9 @@ port := osdetect.DetectSSHPort()  // "22"
 ## Supported Distributions
 
 - Fedora, RHEL, CentOS, Rocky, Alma, Oracle Linux (dnf/yum)
-- Debian, Ubuntu, Linux Mint, Pop!_OS (apt)
+- Debian, Ubuntu, Linux Mint, Pop!\_OS (apt)
 - Arch, Manjaro, EndeavourOS (pacman)
 - openSUSE, SLES (zypper)
 - Alpine (apk)
 
 Distributions with `ID_LIKE` matching the above are also supported.
-
-## License
-
-MIT
