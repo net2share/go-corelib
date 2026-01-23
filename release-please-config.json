@@ -4,8 +4,7 @@
   "bump-minor-pre-major": true,
   "packages": {
     ".": {
-      "component": "go-corelib",
-      "release-as": "0.1.0"
+      "component": "go-corelib"
     }
   },
   "changelog-sections": [
