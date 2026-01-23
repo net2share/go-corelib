@@ -1,0 +1,8 @@
+# Changelog
+
+## 0.1.0 (2026-01-23)
+
+
+### Features
+
+* initial go-corelib with tui and osdetect packages ([#10](https://github.com/net2share/go-corelib/issues/10)) ([4946019](https://github.com/net2share/go-corelib/commit/49460190949fbcd6f28f364d1dec9b85cbe249bd))
