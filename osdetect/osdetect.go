@@ -3,6 +3,7 @@ package osdetect
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -10,6 +11,9 @@ import (
 	"runtime"
 	"strings"
 )
+
+// ErrNotRoot is returned when root privileges are required but not present.
+var ErrNotRoot = errors.New("this program must be run as root")
 
 // OSInfo contains detected OS information.
 type OSInfo struct {
@@ -141,6 +145,15 @@ func (o *OSInfo) InstallPackage(pkg string) error {
 // IsRoot checks if running as root (uid == 0).
 func IsRoot() bool {
 	return os.Geteuid() == 0
+}
+
+// RequireRoot returns ErrNotRoot if not running as root.
+// Use this for consistent root check error messages across projects.
+func RequireRoot() error {
+	if !IsRoot() {
+		return ErrNotRoot
+	}
+	return nil
 }
 
 // HasSystemd checks if systemctl is available.
