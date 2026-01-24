@@ -4,50 +4,9 @@ Shared Go library providing common utilities for CLI applications.
 
 ## Packages
 
-### tui
-
-Terminal UI components for building interactive CLI applications.
-
-```go
-import "github.com/net2share/go-corelib/tui"
-
-// Display functions
-tui.PrintTitle("My Application")
-tui.PrintSuccess("Operation completed")
-tui.PrintError("Something went wrong")
-tui.PrintWarning("Warning message")
-tui.PrintInfo("Information")
-tui.PrintStep(1, 5, "Processing...")
-
-// Prompts
-name := tui.Prompt("Enter name")
-value := tui.PromptWithDefault("Enter value", "default")
-num := tui.PromptInt("Enter number", 10, 1, 100)
-choice := tui.PromptChoice("Select mode", []string{"ssh", "socks"}, "ssh")
-confirmed := tui.Confirm("Continue?", true)
-
-// Menu
-options := []tui.MenuOption{
-    {Key: "1", Label: "Option 1"},
-    {Key: "2", Label: "Option 2"},
-}
-tui.ShowMenu(options)
-
-// Box display
-tui.PrintBox("Title", []string{"Line 1", "Line 2"})
-
-// Terminal control
-tui.ClearScreen()
-tui.ClearLine()
-tui.WaitForEnter()
-
-// Progress bar
-tui.PrintProgress(50, 100)
-```
-
 ### osdetect
 
-OS detection and package management utilities.
+OS detection, package management, and system utilities.
 
 ```go
 import "github.com/net2share/go-corelib/osdetect"
@@ -66,11 +25,78 @@ if osdetect.IsRoot() { ... }
 if osdetect.HasSystemd() { ... }
 if osdetect.HasIPv6() { ... }
 
+// Require root (returns error if not root)
+if err := osdetect.RequireRoot(); err != nil {
+    return err  // "this program must be run as root"
+}
+
 // Get system info
 arch := osdetect.GetArch()        // "amd64", "arm64", etc.
 iface, _ := osdetect.GetDefaultInterface()
 port := osdetect.DetectSSHPort()  // "22"
 ```
+
+### tui
+
+Terminal UI utilities using [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss).
+
+```go
+import "github.com/net2share/go-corelib/tui"
+
+// Print messages with consistent styling
+tui.PrintSuccess("Operation completed!")
+tui.PrintError("Something went wrong")
+tui.PrintWarning("Proceed with caution")
+tui.PrintInfo("Note: this is informational")
+tui.PrintStatus("Processing...")
+tui.PrintStep(1, 5, "Installing dependencies")
+
+// Display a styled box
+tui.PrintBox("Configuration", []string{
+    "Domain: example.com",
+    "Mode: production",
+})
+
+// Format text
+bold := tui.Bold("important")
+code := tui.Code("go build")
+highlight := tui.Highlight("key value")
+
+// Display app banner
+tui.PrintBanner(tui.BannerConfig{
+    AppName:   "My App",
+    Version:   "1.0.0",
+    BuildTime: "2024-01-01",
+    ASCII:     asciiArt,  // optional
+})
+
+// Simple banner without ASCII art
+tui.PrintSimpleBanner("My App", "1.0.0", "2024-01-01")
+
+// Terminal helpers
+tui.WaitForEnter()  // "Press Enter to continue..."
+tui.ClearLine()     // Clear current terminal line
+
+// Progress spinner
+spinner := tui.NewSpinner("Loading")
+spinner.Start()
+// ... do work ...
+spinner.Stop()
+```
+
+#### Theme Colors
+
+The tui package uses a consistent color theme:
+
+| Color | Usage |
+|-------|-------|
+| `Theme.Primary` | Cyan - Primary actions, highlights |
+| `Theme.Secondary` | Magenta - Secondary elements |
+| `Theme.Success` | Green - Success messages |
+| `Theme.Error` | Red - Error messages |
+| `Theme.Warning` | Yellow - Warning messages |
+| `Theme.Info` | Blue - Informational messages |
+| `Theme.Muted` | Gray - Subdued text |
 
 ## Supported Distributions
 
