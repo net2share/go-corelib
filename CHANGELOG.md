@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/net2share/go-corelib/compare/v0.1.0...v0.1.1) (2026-01-24)
+
+
+### Features
+
+* **tui:** migrate to lipgloss and add RequireRoot ([#13](https://github.com/net2share/go-corelib/issues/13)) ([128d76e](https://github.com/net2share/go-corelib/commit/128d76e0bb905d61140a749a19fb33456c5502df))
+
+
+### Documentation
+
+* remove license from readme ([080d97c](https://github.com/net2share/go-corelib/commit/080d97c5990348028f08c357a5eb29e2d47fbd73))
+
 ## 0.1.0 (2026-01-23)
 
 
