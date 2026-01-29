@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/net2share/go-corelib/compare/v0.1.1...v0.1.2) (2026-01-29)
+
+
+### Features
+
+* **tui:** add fullscreen interactive components ([#15](https://github.com/net2share/go-corelib/issues/15)) ([bcae69f](https://github.com/net2share/go-corelib/commit/bcae69ff6f53721f544c53a0231d64dee39c1170))
+
 ## [0.1.1](https://github.com/net2share/go-corelib/compare/v0.1.0...v0.1.1) (2026-01-24)
 
 
