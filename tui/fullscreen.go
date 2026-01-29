@@ -8,6 +8,56 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// AppInfo holds application metadata displayed in fullscreen components.
+type AppInfo struct {
+	Name      string
+	Version   string
+	BuildTime string
+}
+
+// globalAppInfo is the application info displayed in fullscreen footers.
+var globalAppInfo *AppInfo
+
+// SetAppInfo sets the global application info for fullscreen components.
+// This should be called once at application startup.
+// Consumer projects (like dnstm) can call this to control the footer display.
+func SetAppInfo(name, version, buildTime string) {
+	globalAppInfo = &AppInfo{
+		Name:      name,
+		Version:   version,
+		BuildTime: buildTime,
+	}
+}
+
+// ClearAppInfo clears the global application info.
+func ClearAppInfo() {
+	globalAppInfo = nil
+}
+
+// GetAppInfo returns the current global app info (or nil if not set).
+func GetAppInfo() *AppInfo {
+	return globalAppInfo
+}
+
+// renderFooter renders the footer with app info.
+func renderFooter(width int) string {
+	if globalAppInfo == nil {
+		return ""
+	}
+
+	footerStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	var footer string
+	if globalAppInfo.BuildTime != "" && globalAppInfo.BuildTime != "unknown" {
+		footer = fmt.Sprintf("%s %s (%s)", globalAppInfo.Name, globalAppInfo.Version, globalAppInfo.BuildTime)
+	} else {
+		footer = fmt.Sprintf("%s %s", globalAppInfo.Name, globalAppInfo.Version)
+	}
+
+	return footerStyle.Render(footer)
+}
+
 // MenuOption represents a single menu option.
 type MenuOption struct {
 	Label string
@@ -16,6 +66,7 @@ type MenuOption struct {
 
 // MenuConfig configures a full-screen menu.
 type MenuConfig struct {
+	Header      string // Text displayed above the box (outside border)
 	Title       string
 	Description string
 	Options     []MenuOption
@@ -25,6 +76,7 @@ type MenuConfig struct {
 // menuModel is the bubbletea model for full-screen menu.
 type menuModel struct {
 	config   MenuConfig
+	header   string
 	cursor   int
 	selected string
 	width    int
@@ -39,6 +91,7 @@ func newMenuModel(cfg MenuConfig) menuModel {
 	}
 	return menuModel{
 		config: cfg,
+		header: cfg.Header,
 		cursor: cursor,
 	}
 }
@@ -150,8 +203,26 @@ func (m menuModel) View() string {
 
 	box := boxStyle.Render(b.String())
 
-	// Center the box on screen
+	// If header is set, render it above the box
+	if m.header != "" {
+		headerStyle := lipgloss.NewStyle().
+			Foreground(Theme.Muted)
+		headerText := headerStyle.Render(m.header)
+		box = headerText + "\n\n" + box
+	}
+
+	// Center the box on screen with footer
 	if m.width > 0 && m.height > 0 {
+		footer := renderFooter(m.width)
+		if footer != "" {
+			// Reserve space for footer at bottom
+			contentHeight := m.height - 2
+			centered := lipgloss.Place(m.width, contentHeight,
+				lipgloss.Center, lipgloss.Center,
+				box)
+			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
+			return centered + "\n" + footerCentered
+		}
 		return lipgloss.Place(m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
 			box)
@@ -377,8 +448,17 @@ func (m inputModel) View() string {
 
 	box := boxStyle.Render(b.String())
 
-	// Center the box on screen
+	// Center the box on screen with footer
 	if m.width > 0 && m.height > 0 {
+		footer := renderFooter(m.width)
+		if footer != "" {
+			contentHeight := m.height - 2
+			centered := lipgloss.Place(m.width, contentHeight,
+				lipgloss.Center, lipgloss.Center,
+				box)
+			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
+			return centered + "\n" + footerCentered
+		}
 		return lipgloss.Place(m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
 			box)
@@ -414,6 +494,214 @@ type SelectOption = MenuOption
 // RunSelect runs a full-screen selection menu (alias for RunMenu).
 func RunSelect(cfg SelectConfig) (string, error) {
 	return RunMenu(cfg)
+}
+
+// ListConfig configures a full-screen list display.
+type ListConfig struct {
+	Title       string
+	Description string
+	Items       []string
+	EmptyText   string // Text to show when list is empty
+}
+
+// listModel is the bubbletea model for full-screen list display.
+type listModel struct {
+	config   ListConfig
+	scroll   int // Scroll offset for long lists
+	width    int
+	height   int
+	quitting bool
+}
+
+func newListModel(cfg ListConfig) listModel {
+	if cfg.EmptyText == "" {
+		cfg.EmptyText = "No items to display."
+	}
+	return listModel{
+		config: cfg,
+	}
+}
+
+func (m listModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc", "enter", " ":
+			m.quitting = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.scroll > 0 {
+				m.scroll--
+			}
+		case "down", "j":
+			maxScroll := m.maxScroll()
+			if m.scroll < maxScroll {
+				m.scroll++
+			}
+		case "home":
+			m.scroll = 0
+		case "end":
+			m.scroll = m.maxScroll()
+		case "pgup":
+			m.scroll -= 10
+			if m.scroll < 0 {
+				m.scroll = 0
+			}
+		case "pgdown":
+			m.scroll += 10
+			maxScroll := m.maxScroll()
+			if m.scroll > maxScroll {
+				m.scroll = maxScroll
+			}
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	return m, nil
+}
+
+func (m listModel) maxScroll() int {
+	visibleItems := m.visibleItemCount()
+	if len(m.config.Items) <= visibleItems {
+		return 0
+	}
+	return len(m.config.Items) - visibleItems
+}
+
+func (m listModel) visibleItemCount() int {
+	// Estimate how many items fit in the box
+	// Box has padding, title, description, help text
+	available := m.height - 15 // Reserve space for chrome
+	if available < 5 {
+		available = 5
+	}
+	return available
+}
+
+func (m listModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	itemStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	emptyStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted).
+		Italic(true)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	scrollStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	// Title
+	if m.config.Title != "" {
+		b.WriteString(titleStyle.Render(m.config.Title))
+		b.WriteString("\n\n")
+	}
+
+	// Description
+	if m.config.Description != "" {
+		b.WriteString(descStyle.Render(m.config.Description))
+		b.WriteString("\n\n")
+	}
+
+	// Items or empty message
+	if len(m.config.Items) == 0 {
+		b.WriteString(emptyStyle.Render(m.config.EmptyText))
+		b.WriteString("\n")
+	} else {
+		visibleCount := m.visibleItemCount()
+		endIdx := m.scroll + visibleCount
+		if endIdx > len(m.config.Items) {
+			endIdx = len(m.config.Items)
+		}
+
+		// Show scroll indicator at top if scrolled
+		if m.scroll > 0 {
+			b.WriteString(scrollStyle.Render("  ↑ more above"))
+			b.WriteString("\n")
+		}
+
+		for i := m.scroll; i < endIdx; i++ {
+			b.WriteString("  • ")
+			b.WriteString(itemStyle.Render(m.config.Items[i]))
+			b.WriteString("\n")
+		}
+
+		// Show scroll indicator at bottom if more items
+		if endIdx < len(m.config.Items) {
+			b.WriteString(scrollStyle.Render("  ↓ more below"))
+			b.WriteString("\n")
+		}
+	}
+
+	// Help
+	if len(m.config.Items) > m.visibleItemCount() {
+		b.WriteString(helpStyle.Render("\n↑/↓: scroll • enter/q/esc: close"))
+	} else {
+		b.WriteString(helpStyle.Render("\nenter/q/esc: close"))
+	}
+
+	// Create a box with the content left-aligned inside
+	boxWidth := 60
+	if m.width > 0 && m.width < 80 {
+		boxWidth = m.width - 10
+	} else if m.width >= 80 {
+		boxWidth = 70
+	}
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Theme.Muted).
+		Padding(1, 2).
+		Width(boxWidth)
+
+	box := boxStyle.Render(b.String())
+
+	// Center the box on screen with footer
+	if m.width > 0 && m.height > 0 {
+		footer := renderFooter(m.width)
+		if footer != "" {
+			contentHeight := m.height - 2
+			centered := lipgloss.Place(m.width, contentHeight,
+				lipgloss.Center, lipgloss.Center,
+				box)
+			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
+			return centered + "\n" + footerCentered
+		}
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			box)
+	}
+
+	return box
+}
+
+// ShowList displays a full-screen list and waits for user to dismiss it.
+func ShowList(cfg ListConfig) error {
+	m := newListModel(cfg)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	_, err := p.Run()
+	return err
 }
 
 // App represents a full-screen TUI application.
@@ -464,11 +752,11 @@ type ProgressConfig struct {
 
 // progressModel displays progress in full-screen.
 type progressModel struct {
-	config  ProgressConfig
-	width   int
-	height  int
-	done    bool
-	doneCh  chan struct{}
+	config ProgressConfig
+	width  int
+	height int
+	done   bool
+	doneCh chan struct{}
 }
 
 func (m progressModel) Init() tea.Cmd {
@@ -512,8 +800,18 @@ func (m progressModel) View() string {
 	b.WriteString(spinner())
 
 	content := b.String()
+
 	if m.width > 0 && m.height > 0 {
-		content = lipgloss.Place(m.width, m.height,
+		footer := renderFooter(m.width)
+		if footer != "" {
+			contentHeight := m.height - 2
+			centered := lipgloss.Place(m.width, contentHeight,
+				lipgloss.Center, lipgloss.Center,
+				content)
+			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
+			return centered + "\n" + footerCentered
+		}
+		return lipgloss.Place(m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
 			content)
 	}
