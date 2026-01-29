@@ -38,7 +38,7 @@ port := osdetect.DetectSSHPort()  // "22"
 
 ### tui
 
-Terminal UI utilities using [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss).
+Terminal UI utilities using [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) and [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea).
 
 ```go
 import "github.com/net2share/go-corelib/tui"
@@ -82,6 +82,53 @@ spinner := tui.NewSpinner("Loading")
 spinner.Start()
 // ... do work ...
 spinner.Stop()
+```
+
+#### Full-Screen Interactive Components
+
+Interactive menus, confirmations, and inputs using bubbletea.
+
+```go
+// Selection menu
+selected, err := tui.RunMenu(tui.MenuConfig{
+    Title:       "Choose an option",
+    Description: "Use arrow keys to navigate",
+    Options: []tui.MenuOption{
+        {Label: "Option 1", Value: "opt1"},
+        {Label: "Option 2", Value: "opt2"},
+    },
+})
+
+// Simple menu with just labels
+selected, err := tui.RunMenuSimple("Select Mode", []string{"Development", "Production"})
+
+// Confirmation dialog
+confirmed, err := tui.RunConfirm(tui.ConfirmConfig{
+    Title:       "Confirm Action",
+    Description: "This will delete all data",
+    Default:     false,
+})
+
+// Text input
+value, ok, err := tui.RunInput(tui.InputConfig{
+    Title:       "Enter Name",
+    Placeholder: "your-name",
+    Password:    false,  // set true for password input
+})
+
+// Display message (waits for OK)
+tui.ShowMessage(tui.AppMessage{
+    Type:    "success",  // success, error, warning, info
+    Message: "Operation completed!",
+})
+
+// Full-screen progress indicator
+progress := tui.StartProgress(tui.ProgressConfig{
+    Title:   "Installing",
+    Message: "Please wait...",
+})
+// ... do work ...
+progress.Done()
 ```
 
 #### Theme Colors
