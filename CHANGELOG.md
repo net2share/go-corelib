@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/net2share/go-corelib/compare/v0.1.2...v0.1.3) (2026-01-29)
+
+
+### Features
+
+* **tui:** add AppInfo footer and ShowList component ([#17](https://github.com/net2share/go-corelib/issues/17)) ([0877bbc](https://github.com/net2share/go-corelib/commit/0877bbc64e4fe62d849793e6bab836feeccc5692))
+
 ## [0.1.2](https://github.com/net2share/go-corelib/compare/v0.1.1...v0.1.2) (2026-01-29)
 
 
