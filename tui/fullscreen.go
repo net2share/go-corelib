@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 // AppInfo holds application metadata displayed in fullscreen components.
@@ -1081,6 +1082,7 @@ type progressViewModel struct {
 	done       bool
 	width      int
 	height     int
+	vpWidth    int // viewport width for text wrapping
 	quitting   bool
 	msgCh      chan progressViewMsg
 	viewport   viewport.Model
@@ -1114,19 +1116,43 @@ func (m progressViewModel) renderLine(line ProgressLine) string {
 	warningStyle := lipgloss.NewStyle().Foreground(Theme.Warning)
 	errorStyle := lipgloss.NewStyle().Foreground(Theme.Error)
 
+	// Icon prefix is 2 chars wide (icon + space)
+	const iconWidth = 2
+
+	// wrapWithIcon wraps the message and prepends icon to first line, indents rest
+	wrapWithIcon := func(icon string, msg string, style lipgloss.Style) string {
+		if m.vpWidth <= iconWidth {
+			return style.Render(icon + " " + msg)
+		}
+		wrapped := wordwrap.String(msg, m.vpWidth-iconWidth)
+		lines := strings.Split(wrapped, "\n")
+		for i, l := range lines {
+			if i == 0 {
+				lines[i] = style.Render(icon + " " + l)
+			} else {
+				lines[i] = style.Render("  " + l) // indent continuation lines
+			}
+		}
+		return strings.Join(lines, "\n")
+	}
+
 	switch line.Type {
 	case ProgressLineInfo:
-		return infoStyle.Render("ℹ " + line.Message)
+		return wrapWithIcon("ℹ", line.Message, infoStyle)
 	case ProgressLineStatus:
-		return statusStyle.Render("✓ " + line.Message)
+		return wrapWithIcon("✓", line.Message, statusStyle)
 	case ProgressLineSuccess:
-		return successStyle.Render("✓ " + line.Message)
+		return wrapWithIcon("✓", line.Message, successStyle)
 	case ProgressLineWarning:
-		return warningStyle.Render("⚠ " + line.Message)
+		return wrapWithIcon("⚠", line.Message, warningStyle)
 	case ProgressLineError:
-		return errorStyle.Render("✗ " + line.Message)
+		return wrapWithIcon("✗", line.Message, errorStyle)
 	default:
 		if line.Message != "" {
+			if m.vpWidth > 0 {
+				wrapped := wordwrap.String(line.Message, m.vpWidth)
+				return textStyle.Render(wrapped)
+			}
 			return textStyle.Render(line.Message)
 		}
 		return ""
@@ -1192,6 +1218,7 @@ func (m progressViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Viewport width (box - padding - border - scrollbar space)
 		vpWidth := boxWidth - 10
+		m.vpWidth = vpWidth
 
 		if !m.ready {
 			m.viewport = viewport.New(vpWidth, vpHeight)
@@ -1202,6 +1229,7 @@ func (m progressViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.viewport.Width = vpWidth
 			m.viewport.Height = vpHeight
+			m.updateViewportContent() // re-wrap text for new width
 		}
 
 	case progressViewMsg:
