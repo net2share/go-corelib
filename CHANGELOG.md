@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/net2share/go-corelib/compare/v0.1.3...v0.1.4) (2026-02-01)
+
+
+### Features
+
+* **tui:** add ShowInfo and ProgressView components ([b17f1d7](https://github.com/net2share/go-corelib/commit/b17f1d7bb8005cc9add4e4b1fe4fac5d745e9225))
+
 ## [0.1.3](https://github.com/net2share/go-corelib/compare/v0.1.2...v0.1.3) (2026-01-29)
 
 
