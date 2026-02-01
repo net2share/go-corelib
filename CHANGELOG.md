@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/net2share/go-corelib/compare/v0.1.4...v0.1.5) (2026-02-01)
+
+
+### Features
+
+* **tui:** add text wrapping to ProgressView component ([272ff6e](https://github.com/net2share/go-corelib/commit/272ff6e2c3f0d948f88d2675dcd11814b553eb59))
+
 ## [0.1.4](https://github.com/net2share/go-corelib/compare/v0.1.3...v0.1.4) (2026-02-01)
 
 
