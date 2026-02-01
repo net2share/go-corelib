@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -40,7 +41,7 @@ func GetAppInfo() *AppInfo {
 }
 
 // renderFooter renders the footer with app info.
-func renderFooter(width int) string {
+func renderFooter(_ int) string {
 	if globalAppInfo == nil {
 		return ""
 	}
@@ -56,6 +57,46 @@ func renderFooter(width int) string {
 	}
 
 	return footerStyle.Render(footer)
+}
+
+// calcBoxWidth calculates the appropriate box width based on terminal width.
+func calcBoxWidth(termWidth int) int {
+	if termWidth > 0 && termWidth < 80 {
+		return termWidth - 10
+	}
+	if termWidth >= 80 {
+		return 70
+	}
+	return 60
+}
+
+// createBoxStyle creates a standard box style with rounded border.
+func createBoxStyle(width int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Theme.Muted).
+		Padding(1, 2).
+		Width(width)
+}
+
+// centerWithFooter centers content on screen and adds footer if app info is set.
+func centerWithFooter(content string, width, height int) string {
+	if width <= 0 || height <= 0 {
+		return content
+	}
+
+	footer := renderFooter(width)
+	if footer != "" {
+		contentHeight := height - 2
+		centered := lipgloss.Place(width, contentHeight,
+			lipgloss.Center, lipgloss.Center,
+			content)
+		footerCentered := lipgloss.PlaceHorizontal(width, lipgloss.Center, footer)
+		return centered + "\n" + footerCentered
+	}
+	return lipgloss.Place(width, height,
+		lipgloss.Center, lipgloss.Center,
+		content)
 }
 
 // MenuOption represents a single menu option.
@@ -155,7 +196,7 @@ func (m menuModel) View() string {
 		Bold(true)
 
 	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(Theme.Text)
 
 	cursorStyle := lipgloss.NewStyle().
 		Foreground(Theme.Primary)
@@ -190,18 +231,8 @@ func (m menuModel) View() string {
 	b.WriteString(helpStyle.Render("\n↑/↓: navigate • enter: select • q/esc: back"))
 
 	// Create a box with the content left-aligned inside
-	boxWidth := 60
-	if m.width > 0 && m.width < 80 {
-		boxWidth = m.width - 10
-	}
-
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Theme.Muted).
-		Padding(1, 2).
-		Width(boxWidth)
-
-	box := boxStyle.Render(b.String())
+	boxWidth := calcBoxWidth(m.width)
+	box := createBoxStyle(boxWidth).Render(b.String())
 
 	// If header is set, render it above the box
 	if m.header != "" {
@@ -211,24 +242,7 @@ func (m menuModel) View() string {
 		box = headerText + "\n\n" + box
 	}
 
-	// Center the box on screen with footer
-	if m.width > 0 && m.height > 0 {
-		footer := renderFooter(m.width)
-		if footer != "" {
-			// Reserve space for footer at bottom
-			contentHeight := m.height - 2
-			centered := lipgloss.Place(m.width, contentHeight,
-				lipgloss.Center, lipgloss.Center,
-				box)
-			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
-			return centered + "\n" + footerCentered
-		}
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Center, lipgloss.Center,
-			box)
-	}
-
-	return box
+	return centerWithFooter(box, m.width, m.height)
 }
 
 // RunMenu runs a full-screen menu and returns the selected value.
@@ -435,36 +449,10 @@ func (m inputModel) View() string {
 	b.WriteString(helpStyle.Render("\n\nenter: confirm • esc: cancel"))
 
 	// Create a box with the content left-aligned inside
-	boxWidth := 60
-	if m.width > 0 && m.width < 80 {
-		boxWidth = m.width - 10
-	}
+	boxWidth := calcBoxWidth(m.width)
+	box := createBoxStyle(boxWidth).Render(b.String())
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Theme.Muted).
-		Padding(1, 2).
-		Width(boxWidth)
-
-	box := boxStyle.Render(b.String())
-
-	// Center the box on screen with footer
-	if m.width > 0 && m.height > 0 {
-		footer := renderFooter(m.width)
-		if footer != "" {
-			contentHeight := m.height - 2
-			centered := lipgloss.Place(m.width, contentHeight,
-				lipgloss.Center, lipgloss.Center,
-				box)
-			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
-			return centered + "\n" + footerCentered
-		}
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Center, lipgloss.Center,
-			box)
-	}
-
-	return box
+	return centerWithFooter(box, m.width, m.height)
 }
 
 // RunInput runs a full-screen input dialog.
@@ -577,10 +565,7 @@ func (m listModel) visibleItemCount() int {
 	// Estimate how many items fit in the box
 	// Box has padding, title, description, help text
 	available := m.height - 15 // Reserve space for chrome
-	if available < 5 {
-		available = 5
-	}
-	return available
+	return max(available, 5)
 }
 
 func (m listModel) View() string {
@@ -599,7 +584,7 @@ func (m listModel) View() string {
 		Foreground(Theme.Muted)
 
 	itemStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(Theme.Text)
 
 	emptyStyle := lipgloss.NewStyle().
 		Foreground(Theme.Muted).
@@ -629,10 +614,7 @@ func (m listModel) View() string {
 		b.WriteString("\n")
 	} else {
 		visibleCount := m.visibleItemCount()
-		endIdx := m.scroll + visibleCount
-		if endIdx > len(m.config.Items) {
-			endIdx = len(m.config.Items)
-		}
+		endIdx := min(m.scroll+visibleCount, len(m.config.Items))
 
 		// Show scroll indicator at top if scrolled
 		if m.scroll > 0 {
@@ -661,38 +643,10 @@ func (m listModel) View() string {
 	}
 
 	// Create a box with the content left-aligned inside
-	boxWidth := 60
-	if m.width > 0 && m.width < 80 {
-		boxWidth = m.width - 10
-	} else if m.width >= 80 {
-		boxWidth = 70
-	}
+	boxWidth := calcBoxWidth(m.width)
+	box := createBoxStyle(boxWidth).Render(b.String())
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Theme.Muted).
-		Padding(1, 2).
-		Width(boxWidth)
-
-	box := boxStyle.Render(b.String())
-
-	// Center the box on screen with footer
-	if m.width > 0 && m.height > 0 {
-		footer := renderFooter(m.width)
-		if footer != "" {
-			contentHeight := m.height - 2
-			centered := lipgloss.Place(m.width, contentHeight,
-				lipgloss.Center, lipgloss.Center,
-				box)
-			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
-			return centered + "\n" + footerCentered
-		}
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Center, lipgloss.Center,
-			box)
-	}
-
-	return box
+	return centerWithFooter(box, m.width, m.height)
 }
 
 // ShowList displays a full-screen list and waits for user to dismiss it.
@@ -801,22 +755,7 @@ func (m progressModel) View() string {
 
 	content := b.String()
 
-	if m.width > 0 && m.height > 0 {
-		footer := renderFooter(m.width)
-		if footer != "" {
-			contentHeight := m.height - 2
-			centered := lipgloss.Place(m.width, contentHeight,
-				lipgloss.Center, lipgloss.Center,
-				content)
-			footerCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer)
-			return centered + "\n" + footerCentered
-		}
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Center, lipgloss.Center,
-			content)
-	}
-
-	return content
+	return centerWithFooter(content, m.width, m.height)
 }
 
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -863,4 +802,575 @@ func (p *Progress) Update(msg string) {
 	// Note: This is a simplified implementation
 	// For real updates, we'd need custom messages
 	fmt.Print(msg)
+}
+
+// InfoSection represents a section in the info view.
+type InfoSection struct {
+	Title string   // Section title (optional)
+	Rows  []InfoRow // Key-value rows
+}
+
+// InfoRow represents a single row in an info section.
+type InfoRow struct {
+	Key     string
+	Value   string
+	Columns []string // If set, renders as aligned columns (ignores Key/Value)
+}
+
+// InfoConfig configures a full-screen info display.
+type InfoConfig struct {
+	Title       string
+	Description string
+	Sections    []InfoSection
+}
+
+// infoModel is the bubbletea model for full-screen info display.
+type infoModel struct {
+	config   InfoConfig
+	scroll   int
+	width    int
+	height   int
+	quitting bool
+}
+
+func newInfoModel(cfg InfoConfig) infoModel {
+	return infoModel{
+		config: cfg,
+	}
+}
+
+func (m infoModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m infoModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc", "enter", " ":
+			m.quitting = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.scroll > 0 {
+				m.scroll--
+			}
+		case "down", "j":
+			maxScroll := m.maxScroll()
+			if m.scroll < maxScroll {
+				m.scroll++
+			}
+		case "home":
+			m.scroll = 0
+		case "end":
+			m.scroll = m.maxScroll()
+		case "pgup":
+			m.scroll -= 10
+			if m.scroll < 0 {
+				m.scroll = 0
+			}
+		case "pgdown":
+			m.scroll += 10
+			maxScroll := m.maxScroll()
+			if m.scroll > maxScroll {
+				m.scroll = maxScroll
+			}
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	return m, nil
+}
+
+func (m infoModel) totalLines() int {
+	lines := 0
+	for i, section := range m.config.Sections {
+		if section.Title != "" {
+			lines++ // Section title
+		}
+		lines += len(section.Rows)
+		if i < len(m.config.Sections)-1 {
+			lines++ // Spacing between sections
+		}
+	}
+	return lines
+}
+
+func (m infoModel) maxScroll() int {
+	visibleLines := m.visibleLineCount()
+	total := m.totalLines()
+	if total <= visibleLines {
+		return 0
+	}
+	return total - visibleLines
+}
+
+func (m infoModel) visibleLineCount() int {
+	available := m.height - 15
+	return max(available, 5)
+}
+
+func (m infoModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	sectionTitleStyle := lipgloss.NewStyle().
+		Foreground(Theme.Warning).
+		Bold(true)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	valueStyle := lipgloss.NewStyle().
+		Foreground(Theme.Primary)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	scrollStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	// Title
+	if m.config.Title != "" {
+		b.WriteString(titleStyle.Render(m.config.Title))
+		b.WriteString("\n\n")
+	}
+
+	// Description
+	if m.config.Description != "" {
+		b.WriteString(descStyle.Render(m.config.Description))
+		b.WriteString("\n\n")
+	}
+
+	// Build all lines
+	var allLines []string
+	for i, section := range m.config.Sections {
+		if section.Title != "" {
+			allLines = append(allLines, sectionTitleStyle.Render(section.Title))
+		}
+
+		// Calculate column widths for rows with Columns
+		var colWidths []int
+		for _, row := range section.Rows {
+			if len(row.Columns) > 0 {
+				for j, col := range row.Columns {
+					colLen := len(col)
+					if j >= len(colWidths) {
+						colWidths = append(colWidths, colLen)
+					} else if colLen > colWidths[j] {
+						colWidths[j] = colLen
+					}
+				}
+			}
+		}
+
+		for _, row := range section.Rows {
+			if len(row.Columns) > 0 {
+				// Render aligned columns
+				var parts []string
+				for j, col := range row.Columns {
+					width := 0
+					if j < len(colWidths) {
+						width = colWidths[j]
+					}
+					// Last column doesn't need padding
+					if j == len(row.Columns)-1 {
+						parts = append(parts, valueStyle.Render(col))
+					} else {
+						parts = append(parts, valueStyle.Render(fmt.Sprintf("%-*s", width, col)))
+					}
+				}
+				allLines = append(allLines, strings.Join(parts, "  "))
+			} else if row.Key != "" {
+				line := keyStyle.Render(row.Key+": ") + valueStyle.Render(row.Value)
+				allLines = append(allLines, line)
+			} else {
+				// Value-only row (for items like list entries)
+				allLines = append(allLines, valueStyle.Render(row.Value))
+			}
+		}
+		if i < len(m.config.Sections)-1 {
+			allLines = append(allLines, "") // Spacing between sections
+		}
+	}
+
+	// Apply scrolling
+	visibleCount := m.visibleLineCount()
+	startIdx := m.scroll
+	endIdx := min(startIdx+visibleCount, len(allLines))
+
+	// Show scroll indicator at top if scrolled
+	if m.scroll > 0 {
+		b.WriteString(scrollStyle.Render("↑ more above"))
+		b.WriteString("\n")
+	}
+
+	for i := startIdx; i < endIdx; i++ {
+		b.WriteString(allLines[i])
+		b.WriteString("\n")
+	}
+
+	// Show scroll indicator at bottom if more content
+	if endIdx < len(allLines) {
+		b.WriteString(scrollStyle.Render("↓ more below"))
+		b.WriteString("\n")
+	}
+
+	// Help
+	if len(allLines) > visibleCount {
+		b.WriteString(helpStyle.Render("\n↑/↓: scroll • enter/q/esc: close"))
+	} else {
+		b.WriteString(helpStyle.Render("\nenter/q/esc: close"))
+	}
+
+	// Create a box with the content left-aligned inside
+	boxWidth := calcBoxWidth(m.width)
+	box := createBoxStyle(boxWidth).Render(b.String())
+
+	return centerWithFooter(box, m.width, m.height)
+}
+
+// ShowInfo displays a full-screen info view and waits for user to dismiss it.
+func ShowInfo(cfg InfoConfig) error {
+	m := newInfoModel(cfg)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	_, err := p.Run()
+	return err
+}
+
+// ProgressLineType indicates the type of progress line.
+type ProgressLineType int
+
+const (
+	ProgressLineText ProgressLineType = iota
+	ProgressLineInfo
+	ProgressLineStatus
+	ProgressLineSuccess
+	ProgressLineWarning
+	ProgressLineError
+)
+
+// ProgressLine represents a single line in the progress view.
+type ProgressLine struct {
+	Type    ProgressLineType
+	Message string
+}
+
+// progressViewMsg is sent to update the progress view.
+type progressViewMsg struct {
+	line *ProgressLine
+	done bool
+}
+
+// progressViewModel is the bubbletea model for progress view using viewport.
+type progressViewModel struct {
+	title      string
+	lines      []ProgressLine
+	done       bool
+	width      int
+	height     int
+	quitting   bool
+	msgCh      chan progressViewMsg
+	viewport   viewport.Model
+	ready      bool
+	autoScroll bool
+}
+
+func newProgressViewModel(title string, msgCh chan progressViewMsg) progressViewModel {
+	return progressViewModel{
+		title:      title,
+		msgCh:      msgCh,
+		autoScroll: true,
+	}
+}
+
+func (m progressViewModel) Init() tea.Cmd {
+	return m.waitForMsg
+}
+
+func (m progressViewModel) waitForMsg() tea.Msg {
+	msg := <-m.msgCh
+	return msg
+}
+
+// renderLine renders a single progress line with appropriate styling.
+func (m progressViewModel) renderLine(line ProgressLine) string {
+	textStyle := lipgloss.NewStyle().Foreground(Theme.Text)
+	infoStyle := lipgloss.NewStyle().Foreground(Theme.Info)
+	statusStyle := lipgloss.NewStyle().Foreground(Theme.Success)
+	successStyle := lipgloss.NewStyle().Foreground(Theme.Success).Bold(true)
+	warningStyle := lipgloss.NewStyle().Foreground(Theme.Warning)
+	errorStyle := lipgloss.NewStyle().Foreground(Theme.Error)
+
+	switch line.Type {
+	case ProgressLineInfo:
+		return infoStyle.Render("ℹ " + line.Message)
+	case ProgressLineStatus:
+		return statusStyle.Render("✓ " + line.Message)
+	case ProgressLineSuccess:
+		return successStyle.Render("✓ " + line.Message)
+	case ProgressLineWarning:
+		return warningStyle.Render("⚠ " + line.Message)
+	case ProgressLineError:
+		return errorStyle.Render("✗ " + line.Message)
+	default:
+		if line.Message != "" {
+			return textStyle.Render(line.Message)
+		}
+		return ""
+	}
+}
+
+// updateViewportContent updates the viewport with the current lines.
+func (m *progressViewModel) updateViewportContent() {
+	var lines []string
+	for _, line := range m.lines {
+		lines = append(lines, m.renderLine(line))
+	}
+	content := strings.Join(lines, "\n")
+	m.viewport.SetContent(content)
+
+	// Auto-scroll to bottom if enabled
+	if m.autoScroll {
+		m.viewport.GotoBottom()
+	}
+}
+
+func (m progressViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc", "enter", " ":
+			if m.done {
+				m.quitting = true
+				return m, tea.Quit
+			}
+		case "up", "k", "pgup":
+			m.autoScroll = false
+		case "down", "j", "pgdown":
+			// Re-enable auto-scroll if at bottom after this move
+			if m.viewport.AtBottom() {
+				m.autoScroll = true
+			}
+		case "home", "g":
+			m.autoScroll = false
+		case "end", "G":
+			m.autoScroll = true
+		}
+
+		// Pass key events to viewport
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+		// Calculate viewport dimensions
+		boxWidth := calcBoxWidth(m.width)
+
+		// Viewport height (leave space for title, help, borders, padding)
+		vpHeight := 15
+		if m.height > 0 {
+			vpHeight = min(max(m.height-16, 5), 25)
+		}
+
+		// Viewport width (box - padding - border - scrollbar space)
+		vpWidth := boxWidth - 10
+
+		if !m.ready {
+			m.viewport = viewport.New(vpWidth, vpHeight)
+			m.viewport.MouseWheelEnabled = true
+			m.viewport.MouseWheelDelta = 3
+			m.ready = true
+			m.updateViewportContent()
+		} else {
+			m.viewport.Width = vpWidth
+			m.viewport.Height = vpHeight
+		}
+
+	case progressViewMsg:
+		if msg.done {
+			m.done = true
+			return m, nil
+		}
+		if msg.line != nil {
+			m.lines = append(m.lines, *msg.line)
+			m.updateViewportContent()
+		}
+		return m, m.waitForMsg
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+// renderScrollbar renders a scrollbar based on viewport scroll position.
+func (m progressViewModel) renderScrollbar() string {
+	if !m.ready || m.viewport.TotalLineCount() <= m.viewport.Height {
+		return ""
+	}
+
+	trackStyle := lipgloss.NewStyle().Foreground(Theme.ScrollTrack)
+	thumbStyle := lipgloss.NewStyle().Foreground(Theme.Primary)
+
+	height := m.viewport.Height
+	totalLines := m.viewport.TotalLineCount()
+	visibleLines := m.viewport.Height
+
+	// Calculate thumb size (clamped between 1 and height)
+	thumbSize := min(max(height*visibleLines/totalLines, 1), height)
+
+	// Calculate thumb position
+	scrollPercent := m.viewport.ScrollPercent()
+	thumbPos := int(float64(height-thumbSize) * scrollPercent)
+
+	var sb strings.Builder
+	for i := range height {
+		if i >= thumbPos && i < thumbPos+thumbSize {
+			sb.WriteString(thumbStyle.Render("█"))
+		} else {
+			sb.WriteString(trackStyle.Render("│"))
+		}
+		if i < height-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
+}
+
+func (m progressViewModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().Foreground(Theme.Primary).Bold(true)
+	helpStyle := lipgloss.NewStyle().Foreground(Theme.Muted)
+
+	// Calculate box dimensions
+	boxWidth := calcBoxWidth(m.width)
+
+	var b strings.Builder
+
+	// Title
+	if m.title != "" {
+		b.WriteString(titleStyle.Render(m.title))
+		b.WriteString("\n\n")
+	}
+
+	// Viewport content with scrollbar
+	if m.ready {
+		hasScrollbar := m.viewport.TotalLineCount() > m.viewport.Height
+		if hasScrollbar {
+			scrollbar := m.renderScrollbar()
+			content := lipgloss.JoinHorizontal(lipgloss.Top, m.viewport.View(), "  ", scrollbar)
+			b.WriteString(content)
+		} else {
+			b.WriteString(m.viewport.View())
+		}
+	}
+
+	// Help text
+	b.WriteString("\n\n")
+	if m.done {
+		hasScrollbar := m.ready && m.viewport.TotalLineCount() > m.viewport.Height
+		if hasScrollbar {
+			b.WriteString(helpStyle.Render("↑/↓: scroll • enter/q/esc: close"))
+		} else {
+			b.WriteString(helpStyle.Render("enter/q/esc: close"))
+		}
+	} else {
+		b.WriteString(helpStyle.Render("..."))
+	}
+
+	// Create a box with fixed dimensions
+	box := createBoxStyle(boxWidth).Render(b.String())
+
+	return centerWithFooter(box, m.width, m.height)
+}
+
+// ProgressView manages a real-time progress display.
+type ProgressView struct {
+	program *tea.Program
+	msgCh   chan progressViewMsg
+	doneCh  chan struct{}
+}
+
+// NewProgressView creates and starts a new progress view.
+func NewProgressView(title string) *ProgressView {
+	msgCh := make(chan progressViewMsg, 100)
+	doneCh := make(chan struct{})
+	m := newProgressViewModel(title, msgCh)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	pv := &ProgressView{
+		program: p,
+		msgCh:   msgCh,
+		doneCh:  doneCh,
+	}
+
+	go func() {
+		p.Run()
+		close(doneCh)
+	}()
+
+	return pv
+}
+
+// AddLine adds a line to the progress view.
+func (pv *ProgressView) AddLine(lineType ProgressLineType, message string) {
+	pv.msgCh <- progressViewMsg{
+		line: &ProgressLine{Type: lineType, Message: message},
+	}
+}
+
+// AddText adds a plain text line.
+func (pv *ProgressView) AddText(message string) {
+	pv.AddLine(ProgressLineText, message)
+}
+
+// AddInfo adds an info line.
+func (pv *ProgressView) AddInfo(message string) {
+	pv.AddLine(ProgressLineInfo, message)
+}
+
+// AddStatus adds a status line (checkmark).
+func (pv *ProgressView) AddStatus(message string) {
+	pv.AddLine(ProgressLineStatus, message)
+}
+
+// AddSuccess adds a success line.
+func (pv *ProgressView) AddSuccess(message string) {
+	pv.AddLine(ProgressLineSuccess, message)
+}
+
+// AddWarning adds a warning line.
+func (pv *ProgressView) AddWarning(message string) {
+	pv.AddLine(ProgressLineWarning, message)
+}
+
+// AddError adds an error line.
+func (pv *ProgressView) AddError(message string) {
+	pv.AddLine(ProgressLineError, message)
+}
+
+// Done signals completion and waits for user to dismiss.
+func (pv *ProgressView) Done() {
+	pv.msgCh <- progressViewMsg{done: true}
+	<-pv.doneCh
 }
