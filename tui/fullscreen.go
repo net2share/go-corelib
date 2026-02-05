@@ -1402,3 +1402,9 @@ func (pv *ProgressView) Done() {
 	pv.msgCh <- progressViewMsg{done: true}
 	<-pv.doneCh
 }
+
+// Dismiss closes the progress view immediately without waiting for user input.
+func (pv *ProgressView) Dismiss() {
+	pv.program.Quit()
+	<-pv.doneCh
+}
