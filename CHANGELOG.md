@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/net2share/go-corelib/compare/v0.1.5...v0.1.6) (2026-02-05)
+
+
+### Features
+
+* **tui:** add Dismiss method to ProgressView ([a9cabd0](https://github.com/net2share/go-corelib/commit/a9cabd05de16fe6542493d37881058808e425c1e))
+
 ## [0.1.5](https://github.com/net2share/go-corelib/compare/v0.1.4...v0.1.5) (2026-02-01)
 
 
