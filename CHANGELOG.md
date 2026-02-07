@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/net2share/go-corelib/compare/v0.1.6...v0.1.7) (2026-02-07)
+
+
+### Features
+
+* **tui:** add session lifecycle to eliminate alt screen flickering ([e0a82dd](https://github.com/net2share/go-corelib/commit/e0a82ddb5eacb8829c49052780716354f3096320))
+
 ## [0.1.6](https://github.com/net2share/go-corelib/compare/v0.1.5...v0.1.6) (2026-02-05)
 
 
