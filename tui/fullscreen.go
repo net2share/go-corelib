@@ -250,7 +250,7 @@ func (m menuModel) View() string {
 // Returns empty string if user cancels (esc/q).
 func RunMenu(cfg MenuConfig) (string, error) {
 	m := newMenuModel(cfg)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -460,7 +460,7 @@ func (m inputModel) View() string {
 // Returns the entered value and whether it was confirmed (not cancelled).
 func RunInput(cfg InputConfig) (string, bool, error) {
 	m := newInputModel(cfg)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -653,7 +653,7 @@ func (m listModel) View() string {
 // ShowList displays a full-screen list and waits for user to dismiss it.
 func ShowList(cfg ListConfig) error {
 	m := newListModel(cfg)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	_, err := p.Run()
 	return err
@@ -781,7 +781,7 @@ func StartProgress(cfg ProgressConfig) *Progress {
 		config: cfg,
 		doneCh: doneCh,
 	}
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	go func() {
 		p.Run()
@@ -1045,7 +1045,7 @@ func (m infoModel) View() string {
 // ShowInfo displays a full-screen info view and waits for user to dismiss it.
 func ShowInfo(cfg InfoConfig) error {
 	m := newInfoModel(cfg)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	_, err := p.Run()
 	return err
@@ -1344,7 +1344,7 @@ func NewProgressView(title string) *ProgressView {
 	msgCh := make(chan progressViewMsg, 100)
 	doneCh := make(chan struct{})
 	m := newProgressViewModel(title, msgCh)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := newProgram(m)
 
 	pv := &ProgressView{
 		program: p,
