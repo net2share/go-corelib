@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/net2share/go-corelib/compare/v0.1.7...v0.1.8) (2026-02-11)
+
+
+### Features
+
+* **tui:** add separator support to menu options ([d498723](https://github.com/net2share/go-corelib/commit/d49872377caedd6acdc02086edf82b03e9b82226))
+
 ## [0.1.7](https://github.com/net2share/go-corelib/compare/v0.1.6...v0.1.7) (2026-02-07)
 
 
