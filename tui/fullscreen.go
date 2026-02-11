@@ -101,9 +101,13 @@ func centerWithFooter(content string, width, height int) string {
 }
 
 // MenuOption represents a single menu option.
+// When Separator is true, the item is non-selectable:
+//   - Empty Label renders as a thin divider line
+//   - Non-empty Label renders as a muted subtitle/header
 type MenuOption struct {
-	Label string
-	Value string
+	Label     string
+	Value     string
+	Separator bool
 }
 
 // MenuConfig configures a full-screen menu.
@@ -131,11 +135,38 @@ func newMenuModel(cfg MenuConfig) menuModel {
 	if cursor < 0 || cursor >= len(cfg.Options) {
 		cursor = 0
 	}
-	return menuModel{
+	m := menuModel{
 		config: cfg,
 		header: cfg.Header,
 		cursor: cursor,
 	}
+	// Ensure cursor starts on a selectable item
+	if len(cfg.Options) > 0 && !m.isSelectable(cursor) {
+		m.cursor = m.nextSelectable(cursor, 1)
+	}
+	return m
+}
+
+// isSelectable returns true if the option at index i is selectable (not a separator).
+func (m menuModel) isSelectable(i int) bool {
+	return i >= 0 && i < len(m.config.Options) && !m.config.Options[i].Separator
+}
+
+// nextSelectable finds the next selectable option starting from 'from' in the given direction (+1 or -1).
+// Wraps around. Returns 'from' if no selectable option exists.
+func (m menuModel) nextSelectable(from, direction int) int {
+	n := len(m.config.Options)
+	if n == 0 {
+		return from
+	}
+	pos := from
+	for range n {
+		pos = (pos + direction + n) % n
+		if m.isSelectable(pos) {
+			return pos
+		}
+	}
+	return from
 }
 
 func (m menuModel) Init() tea.Cmd {
@@ -151,24 +182,18 @@ func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selected = ""
 			return m, tea.Quit
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			} else {
-				m.cursor = len(m.config.Options) - 1 // Wrap to last
-			}
+			m.cursor = m.nextSelectable(m.cursor, -1)
 		case "down", "j":
-			if m.cursor < len(m.config.Options)-1 {
-				m.cursor++
-			} else {
-				m.cursor = 0 // Wrap to first
-			}
+			m.cursor = m.nextSelectable(m.cursor, 1)
 		case "enter", " ":
-			m.selected = m.config.Options[m.cursor].Value
-			return m, tea.Quit
+			if m.isSelectable(m.cursor) {
+				m.selected = m.config.Options[m.cursor].Value
+				return m, tea.Quit
+			}
 		case "home":
-			m.cursor = 0
+			m.cursor = m.nextSelectable(-1, 1)
 		case "end":
-			m.cursor = len(m.config.Options) - 1
+			m.cursor = m.nextSelectable(len(m.config.Options), -1)
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -217,8 +242,25 @@ func (m menuModel) View() string {
 		b.WriteString("\n\n")
 	}
 
+	separatorStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted)
+
+	subtitleStyle := lipgloss.NewStyle().
+		Foreground(Theme.Muted).
+		Bold(true)
+
 	// Options
 	for i, opt := range m.config.Options {
+		if opt.Separator {
+			if opt.Label == "" {
+				// Empty separator = divider line
+				b.WriteString(separatorStyle.Render("  " + strings.Repeat("─", 25)) + "\n")
+			} else {
+				// Labeled separator = subtitle
+				b.WriteString("  " + subtitleStyle.Render(opt.Label) + "\n")
+			}
+			continue
+		}
 		cursor := "  "
 		style := normalStyle
 		if i == m.cursor {
