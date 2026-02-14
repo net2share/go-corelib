@@ -62,13 +62,13 @@ func renderFooter(_ int) string {
 
 // calcBoxWidth calculates the appropriate box width based on terminal width.
 func calcBoxWidth(termWidth int) int {
-	if termWidth > 0 && termWidth < 80 {
+	if termWidth <= 0 {
+		return 80
+	}
+	if termWidth < 100 {
 		return termWidth - 10
 	}
-	if termWidth >= 80 {
-		return 70
-	}
-	return 60
+	return 90
 }
 
 // createBoxStyle creates a standard box style with rounded border.
@@ -926,12 +926,34 @@ func (m infoModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m infoModel) totalLines() int {
+	contentWidth := calcBoxWidth(m.width) - 6
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
 	lines := 0
 	for i, section := range m.config.Sections {
 		if section.Title != "" {
 			lines++ // Section title
 		}
-		lines += len(section.Rows)
+		for _, row := range section.Rows {
+			if len(row.Columns) > 0 {
+				lines++
+			} else if row.Key != "" {
+				valueWidth := contentWidth - len(row.Key) - 2 // "key: "
+				if valueWidth > 0 && len(row.Value) > valueWidth {
+					wrapped := wordwrap.String(row.Value, valueWidth)
+					lines += len(strings.Split(wrapped, "\n"))
+				} else {
+					lines++
+				}
+			} else if len(row.Value) > contentWidth {
+				wrapped := wordwrap.String(row.Value, contentWidth)
+				lines += len(strings.Split(wrapped, "\n"))
+			} else {
+				lines++
+			}
+		}
 		if i < len(m.config.Sections)-1 {
 			lines++ // Spacing between sections
 		}
@@ -996,6 +1018,12 @@ func (m infoModel) View() string {
 		b.WriteString("\n\n")
 	}
 
+	// Content width for wrapping (box width - padding - border)
+	contentWidth := calcBoxWidth(m.width) - 6
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
 	// Build all lines
 	var allLines []string
 	for i, section := range m.config.Sections {
@@ -1036,11 +1064,29 @@ func (m infoModel) View() string {
 				}
 				allLines = append(allLines, strings.Join(parts, "  "))
 			} else if row.Key != "" {
-				line := keyStyle.Render(row.Key+": ") + valueStyle.Render(row.Value)
-				allLines = append(allLines, line)
+				prefix := row.Key + ": "
+				valueWidth := contentWidth - len(prefix)
+				if valueWidth > 0 && len(row.Value) > valueWidth {
+					// Wrap long values, indent continuation lines
+					wrapped := wordwrap.String(row.Value, valueWidth)
+					wLines := strings.Split(wrapped, "\n")
+					for j, wl := range wLines {
+						if j == 0 {
+							allLines = append(allLines, keyStyle.Render(prefix)+valueStyle.Render(wl))
+						} else {
+							indent := strings.Repeat(" ", len(prefix))
+							allLines = append(allLines, keyStyle.Render(indent)+valueStyle.Render(wl))
+						}
+					}
+				} else {
+					allLines = append(allLines, keyStyle.Render(prefix)+valueStyle.Render(row.Value))
+				}
 			} else {
-				// Value-only row (for items like list entries)
-				allLines = append(allLines, valueStyle.Render(row.Value))
+				// Value-only row — wrap long text
+				wrapped := wordwrap.String(row.Value, contentWidth)
+				for _, wl := range strings.Split(wrapped, "\n") {
+					allLines = append(allLines, valueStyle.Render(wl))
+				}
 			}
 		}
 		if i < len(m.config.Sections)-1 {
@@ -1277,11 +1323,19 @@ func (m progressViewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case progressViewMsg:
 		if msg.done {
 			m.done = true
+			if m.ready && m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		}
 		if msg.line != nil {
 			m.lines = append(m.lines, *msg.line)
-			m.updateViewportContent()
+			if m.ready {
+				m.updateViewportContent()
+				if m.autoScroll {
+					m.viewport.GotoBottom()
+				}
+			}
 		}
 		return m, m.waitForMsg
 	}
