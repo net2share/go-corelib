@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/net2share/go-corelib/compare/v0.1.8...v0.1.9) (2026-02-14)
+
+
+### Bug Fixes
+
+* **tui:** widen box layout, add text wrapping, and fix progress auto-scroll ([ca4f11f](https://github.com/net2share/go-corelib/commit/ca4f11f3272a40f2095a749529a1dfaeaa74720c))
+
 ## [0.1.8](https://github.com/net2share/go-corelib/compare/v0.1.7...v0.1.8) (2026-02-11)
 
 
