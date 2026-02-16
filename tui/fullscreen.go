@@ -418,9 +418,15 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "end", "ctrl+e":
 			m.cursor = len(m.value)
 		default:
-			if len(msg.String()) == 1 {
-				m.value = m.value[:m.cursor] + msg.String() + m.value[m.cursor:]
-				m.cursor++
+			var s string
+			if msg.Paste {
+				s = string(msg.Runes)
+			} else {
+				s = msg.String()
+			}
+			if len(s) == 1 || msg.Paste {
+				m.value = m.value[:m.cursor] + s + m.value[m.cursor:]
+				m.cursor += len(s)
 			}
 		}
 	case tea.WindowSizeMsg:
