@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.11](https://github.com/net2share/go-corelib/compare/v0.1.10...v0.1.11) (2026-02-24)
+
+
+### Features
+
+* add binman package for shared binary management ([2df227f](https://github.com/net2share/go-corelib/commit/2df227fedfe95db2e424544075538779c59db991))
+
+
+### Documentation
+
+* update README with binman package and missing tui APIs ([b4f958a](https://github.com/net2share/go-corelib/commit/b4f958afe2f845568e54ba3a7bba3eb70635f4ca))
+
 ## [0.1.10](https://github.com/net2share/go-corelib/compare/v0.1.9...v0.1.10) (2026-02-16)
 
 
