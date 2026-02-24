@@ -56,11 +56,14 @@ tui.PrintBox("Configuration", []string{
     "Domain: example.com",
     "Mode: production",
 })
+tui.PrintBoxSimple([]string{"Line 1", "Line 2"})
 
 // Format text
-bold := tui.Bold("important")
+kv := tui.KV("Domain", "example.com")  // styled key-value pair
+header := tui.Header("Section Title")
 code := tui.Code("go build")
-highlight := tui.Highlight("key value")
+value := tui.Value("some-value")
+muted := tui.Muted("subdued text")
 
 // Display app banner
 tui.PrintBanner(tui.BannerConfig{
@@ -74,14 +77,21 @@ tui.PrintBanner(tui.BannerConfig{
 tui.PrintSimpleBanner("My App", "1.0.0", "2024-01-01")
 
 // Terminal helpers
-tui.WaitForEnter()  // "Press Enter to continue..."
-tui.ClearLine()     // Clear current terminal line
+tui.WaitForEnter()   // "Press Enter to continue..."
+tui.ClearLine()      // Clear current terminal line
+tui.ClearScreen()    // Clear entire terminal screen
 
-// Progress spinner
-spinner := tui.NewSpinner("Loading")
-spinner.Start()
-// ... do work ...
-spinner.Stop()
+// Inline progress bar
+tui.PrintProgress(downloaded, total)
+tui.PrintProgressWithLabel("Downloading", downloaded, total)
+
+// Session management (alternate screen buffer)
+tui.BeginSession()
+defer tui.EndSession()
+if tui.InSession() { ... }
+
+// Set global app info (shown in fullscreen component footers)
+tui.SetAppInfo("My App", "1.0.0", "2024-01-01")
 ```
 
 #### Full-Screen Interactive Components
@@ -91,16 +101,22 @@ Interactive menus, confirmations, and inputs using bubbletea.
 ```go
 // Selection menu
 selected, err := tui.RunMenu(tui.MenuConfig{
+    Header:      "Status line",       // optional header above title
     Title:       "Choose an option",
     Description: "Use arrow keys to navigate",
     Options: []tui.MenuOption{
         {Label: "Option 1", Value: "opt1"},
         {Label: "Option 2", Value: "opt2"},
+        {Separator: true},             // non-selectable divider
+        {Label: "Option 3", Value: "opt3"},
     },
 })
 
 // Simple menu with just labels
 selected, err := tui.RunMenuSimple("Select Mode", []string{"Development", "Production"})
+
+// RunSelect is an alias for RunMenu
+selected, err := tui.RunSelect(tui.SelectConfig{ ... })
 
 // Confirmation dialog
 confirmed, err := tui.RunConfirm(tui.ConfirmConfig{
@@ -122,13 +138,45 @@ tui.ShowMessage(tui.AppMessage{
     Message: "Operation completed!",
 })
 
-// Full-screen progress indicator
+// Display a non-interactive list
+tui.ShowList(tui.ListConfig{
+    Title:     "Installed Packages",
+    Items:     []string{"nginx", "curl", "jq"},
+    EmptyText: "No packages installed",
+})
+
+// Display structured info with sections and columns
+tui.ShowInfo(tui.InfoConfig{
+    Title: "System Info",
+    Sections: []tui.InfoSection{
+        {
+            Title: "Network",
+            Rows: []tui.InfoRow{
+                {Key: "IP", Value: "192.168.1.1"},
+                {Columns: []string{"eth0", "UP", "1000Mbps"}},
+            },
+        },
+    },
+})
+
+// Full-screen progress spinner
 progress := tui.StartProgress(tui.ProgressConfig{
     Title:   "Installing",
     Message: "Please wait...",
 })
-// ... do work ...
+progress.Update("Still working...")
 progress.Done()
+
+// Multi-line progress view with scrolling
+pv := tui.NewProgressView("Installing")
+pv.AddInfo("Downloading package...")
+pv.AddStatus("Extracting files...")
+pv.AddSuccess("Package installed")
+pv.AddWarning("Optional dependency missing")
+pv.AddError("Failed to configure")
+pv.AddText("Plain text line")
+pv.Done()       // show "press any key" prompt
+pv.Dismiss()    // close immediately without prompt
 ```
 
 #### Theme Colors
@@ -144,6 +192,103 @@ The tui package uses a consistent color theme:
 | `Theme.Warning` | Yellow - Warning messages |
 | `Theme.Info` | Blue - Informational messages |
 | `Theme.Muted` | Gray - Subdued text |
+
+### binman
+
+Binary management: download, install, version tracking, checksum verification, and self-update.
+
+```go
+import "github.com/net2share/go-corelib/binman"
+
+// Define binaries
+def := binman.BinaryDef{
+    Name:          "my-tool",
+    EnvOverride:   "MY_TOOL_PATH",           // env var to override path resolution
+    URLPattern:    "https://github.com/org/repo/releases/download/{version}/my-tool-{os}-{arch}",
+    PinnedVersion: "v1.2.0",
+    ChecksumURL:   "https://github.com/org/repo/releases/download/{version}/checksums.sha256",
+}
+
+// For archived binaries (tar.xz)
+archiveDef := binman.BinaryDef{
+    Name:          "sslocal",
+    URLPattern:    "https://example.com/releases/{version}/pkg-{version}.{platform}.tar.xz",
+    PinnedVersion: "v1.21.2",
+    Archive:       true,
+    ChecksumURL:   "https://example.com/releases/{version}/pkg-{version}.{platform}.tar.xz.sha256",
+    ArchMappings: map[string]binman.ArchMapping{
+        "platform": {
+            "linux/amd64":  "x86_64-unknown-linux-gnu",
+            "linux/arm64":  "aarch64-unknown-linux-gnu",
+            "darwin/arm64": "aarch64-apple-darwin",
+        },
+    },
+}
+```
+
+#### Manager
+
+Handles binary resolution, download, and installation.
+
+```go
+mgr := binman.NewManager("/usr/local/bin",
+    binman.WithSystemPaths([]string{"/usr/bin", "/usr/sbin"}),
+)
+
+// Check and resolve
+mgr.IsInstalled(def)                          // true if found anywhere
+mgr.IsPlatformSupported(def)                  // check platform constraints
+path, err := mgr.ResolvePath(def)             // env > system paths > binDir
+url := mgr.BuildURL(def, "v1.2.0")           // expand URL pattern
+
+// Download and install
+err := mgr.Download(def, "v1.2.0", func(downloaded, total int64) {
+    fmt.Printf("\r%d/%d bytes", downloaded, total)
+})
+
+// Resolve or download if missing
+path, err := mgr.EnsureInstalled(def, progressFn)
+
+// Remove from managed directory
+mgr.Remove(def)
+```
+
+#### Version Manifest
+
+Track installed binary versions with a JSON manifest.
+
+```go
+// Create or load
+manifest := binman.NewManifest()
+manifest, err := binman.LoadManifest("/path/to/versions.json")  // empty on ENOENT
+
+// Track versions
+manifest.SetVersion("my-tool", "v1.2.0")
+ver := manifest.GetVersion("my-tool")  // "v1.2.0"
+manifest.Save("/path/to/versions.json")
+
+// Compare versions (semver and date-based)
+binman.CompareVersions("v1.2.0", "v1.3.0")  // -1
+binman.IsNewer("v1.2.0", "v1.3.0")          // true
+```
+
+#### GitHub Releases and Self-Update
+
+```go
+// Check for updates
+release, err := binman.GetLatestRelease("org/repo")
+fmt.Println(release.TagName)
+
+// Self-update check
+latest, available, err := binman.CheckSelfUpdate("org/repo", "v1.0.0")
+
+// Perform self-update (atomic binary replacement)
+err := binman.SelfUpdate(binman.SelfUpdateConfig{
+    Repo:       "org/repo",
+    URLPattern: "https://github.com/org/repo/releases/download/{version}/app-{os}-{arch}",
+    StatusFn:   func(msg string) { fmt.Println(msg) },
+}, "v1.1.0")
+```
 
 ## Supported Distributions
 
