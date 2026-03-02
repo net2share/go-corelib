@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/net2share/go-corelib/compare/v0.1.11...v0.1.12) (2026-03-02)
+
+
+### Features
+
+* **tui:** add clipboard copy support to info view via OSC52 ([947bc47](https://github.com/net2share/go-corelib/commit/947bc476adb7ec6aeab8ee56219969669db086bc))
+
 ## [0.1.11](https://github.com/net2share/go-corelib/compare/v0.1.10...v0.1.11) (2026-02-24)
 
 
