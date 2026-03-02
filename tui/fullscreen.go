@@ -2,12 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
+	"github.com/muesli/termenv"
 )
 
 // AppInfo holds application metadata displayed in fullscreen components.
@@ -871,6 +873,7 @@ type InfoConfig struct {
 	Title       string
 	Description string
 	Sections    []InfoSection
+	CopyText    string // If set, pressing 'c' copies this text to clipboard via OSC52
 }
 
 // infoModel is the bubbletea model for full-screen info display.
@@ -880,6 +883,7 @@ type infoModel struct {
 	width    int
 	height   int
 	quitting bool
+	copied   bool
 }
 
 func newInfoModel(cfg InfoConfig) infoModel {
@@ -899,6 +903,13 @@ func (m infoModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q", "esc", "enter", " ":
 			m.quitting = true
 			return m, tea.Quit
+		case "c":
+			if m.config.CopyText != "" {
+				// Write OSC52 to stderr so it reaches the terminal
+				// (bubbletea captures stdout for rendering)
+				termenv.NewOutput(os.Stderr).Copy(m.config.CopyText)
+				m.copied = true
+			}
 		case "up", "k":
 			if m.scroll > 0 {
 				m.scroll--
@@ -1123,11 +1134,20 @@ func (m infoModel) View() string {
 	}
 
 	// Help
+	var helpParts []string
 	if len(allLines) > visibleCount {
-		b.WriteString(helpStyle.Render("\n↑/↓: scroll • enter/q/esc: close"))
-	} else {
-		b.WriteString(helpStyle.Render("\nenter/q/esc: close"))
+		helpParts = append(helpParts, "↑/↓: scroll")
 	}
+	if m.config.CopyText != "" {
+		if m.copied {
+			copiedStyle := lipgloss.NewStyle().Foreground(Theme.Success)
+			helpParts = append(helpParts, copiedStyle.Render("Copied!"))
+		} else {
+			helpParts = append(helpParts, "c: copy")
+		}
+	}
+	helpParts = append(helpParts, "enter/q/esc: close")
+	b.WriteString(helpStyle.Render("\n" + strings.Join(helpParts, " • ")))
 
 	// Create a box with the content left-aligned inside
 	boxWidth := calcBoxWidth(m.width)
