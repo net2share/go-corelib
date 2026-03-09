@@ -129,8 +129,16 @@ func (m *Manager) Download(def BinaryDef, version string, fn ProgressFunc) error
 
 	// Extract from archive if needed
 	installPath := tmpPath
-	if def.Archive {
-		extractedPath, err := extractTarXz(tmpPath, def.Name)
+	if def.IsArchive() {
+		var extractedPath string
+		switch def.GetArchiveType() {
+		case "zip":
+			extractedPath, err = extractZip(tmpPath, def.Name)
+		case "tar.xz":
+			extractedPath, err = extractTarXz(tmpPath, def.Name)
+		default:
+			err = fmt.Errorf("unsupported archive type: %s", def.GetArchiveType())
+		}
 		if err != nil {
 			return fmt.Errorf("failed to extract %s from archive: %w", def.Name, err)
 		}

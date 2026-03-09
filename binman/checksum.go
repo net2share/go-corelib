@@ -36,6 +36,27 @@ func fetchAndVerifyChecksum(checksumURL, filePath, expectedFilename string) erro
 		}
 		lineCount++
 
+		// Xray .dgst format: "ALGO= hash" (e.g. "SHA2-256= abc123...")
+		if strings.Contains(line, "= ") && !strings.Contains(line, "  ") {
+			parts := strings.SplitN(line, "= ", 2)
+			if len(parts) == 2 {
+				algo := strings.TrimSpace(parts[0])
+				hash := strings.TrimSpace(parts[1])
+				// Prefer SHA2-256 / SHA-256
+				if strings.Contains(strings.ToUpper(algo), "SHA2-256") ||
+					strings.Contains(strings.ToUpper(algo), "SHA-256") ||
+					strings.Contains(strings.ToUpper(algo), "SHA256") {
+					expectedHash = hash
+					break
+				}
+				// Fall back to first hash if no SHA-256 found yet
+				if expectedHash == "" {
+					expectedHash = hash
+				}
+				continue
+			}
+		}
+
 		parts := strings.Fields(line)
 		if len(parts) >= 2 {
 			// Standard format: "hash  filename"
