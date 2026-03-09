@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/net2share/go-corelib/compare/v0.1.12...v0.1.13) (2026-03-09)
+
+
+### Features
+
+* **binman:** add zip archive and dgst checksum support ([ba87b9a](https://github.com/net2share/go-corelib/commit/ba87b9a63496607a6ed29d505f724b7d2bfd4c1d))
+
 ## [0.1.12](https://github.com/net2share/go-corelib/compare/v0.1.11...v0.1.12) (2026-03-02)
 
 
